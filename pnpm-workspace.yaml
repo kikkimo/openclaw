@@ -3,6 +3,7 @@ packages:
   - ui
   - packages/*
   - extensions/*
+  - "!extensions/tlon"
 
 onlyBuiltDependencies:
   - "@lydell/node-pty"
