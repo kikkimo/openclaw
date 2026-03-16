@@ -152,14 +152,21 @@ case "$MODE" in
     echo "--- 重启 Gateway ---"
     stop_gateway
     cd "$SCRIPT_DIR"
-    node openclaw.mjs gateway run > /dev/null 2>&1 &
+    local logfile="/tmp/openclaw-gateway-start.log"
+    node openclaw.mjs gateway run > "$logfile" 2>&1 &
     disown
-    sleep 8
-    if curl -s http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
-      pid=$(find_gateway_pid)
-      echo "    Gateway 已启动 (PID $pid)"
-    else
-      echo "    Gateway 启动失败，请检查日志"
+    echo "    等待 Gateway 启动..."
+    for i in $(seq 1 15); do
+      if curl -s http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
+        pid=$(find_gateway_pid)
+        echo "    Gateway 已启动 (PID $pid)"
+        break
+      fi
+      sleep 2
+    done
+    if ! curl -s http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
+      echo "    Gateway 启动失败，最近日志:"
+      tail -10 "$logfile" 2>/dev/null
       exit 1
     fi
     ;;
