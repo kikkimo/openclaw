@@ -147,7 +147,7 @@ case "$MODE" in
     echo "=== 构建并重启 Gateway ==="
     echo "    Node: $(node --version)"
     echo ""
-    build_quick
+    build_standard
     echo ""
     echo "--- 重启 Gateway ---"
     stop_gateway
@@ -168,7 +168,7 @@ case "$MODE" in
     echo "=== 构建并前台运行 Gateway ==="
     echo "    Node: $(node --version)"
     echo ""
-    build_quick
+    build_standard
     echo ""
     echo "--- 启动 Gateway (Ctrl+C 停止) ---"
     exec pnpm dev gateway run
