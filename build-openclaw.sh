@@ -26,7 +26,7 @@ build_quick() {
 
 build_standard() {
   build_quick
-  (cd ui && npx vite build) 2>/dev/null || echo "    (UI 构建跳过)"
+  # UI 构建已由 runtime-postbuild.mjs 自动处理（tsdown 清空 dist/ 后重建）
   pnpm build:plugin-sdk:dts 2>/dev/null || echo "    (plugin SDK dts 跳过)"
   node --import tsx scripts/write-build-info.ts 2>/dev/null || true
   node --import tsx scripts/write-cli-startup-metadata.ts 2>/dev/null || true
@@ -61,7 +61,7 @@ patch_gateway_cmd() {
   # 确保 gateway.cmd 启动前自动编译
   local cmd_file="${USERPROFILE:-$HOME}/.openclaw/gateway.cmd"
   if [[ -f "$cmd_file" ]] && ! grep -q "tsdown-build" "$cmd_file" 2>/dev/null; then
-    sed -i "s|\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" D:\\\\claude-integrated\\\\openclaw\\\\dist\\\\index.js|cd /d D:\\\\claude-integrated\\\\openclaw\nrem Auto-build\n\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" scripts\\\\tsdown-build.mjs\n\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" scripts\\\\runtime-postbuild.mjs\nrem Start gateway\n\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" D:\\\\claude-integrated\\\\openclaw\\\\dist\\\\index.js|" "$cmd_file"
+    sed -i "s|\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" D:\\\\claude-integrated\\\\openclaw\\\\dist\\\\index.js|cd /d D:\\\\claude-integrated\\\\openclaw\nrem Auto-build before starting (UI rebuild included in postbuild)\n\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" scripts\\\\tsdown-build.mjs\n\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" scripts\\\\runtime-postbuild.mjs\nrem Start gateway\n\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" D:\\\\claude-integrated\\\\openclaw\\\\dist\\\\index.js|" "$cmd_file"
     echo "    gateway.cmd 已添加自动编译步骤"
   fi
 }
