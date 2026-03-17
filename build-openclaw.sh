@@ -43,7 +43,7 @@ verify_cli() {
 }
 
 find_gateway_pid() {
-  netstat -ano 2>/dev/null | grep "18789.*LISTEN" | head -1 | awk '{print $NF}'
+  netstat -ano 2>/dev/null | grep "18789.*LISTEN" | head -1 | awk '{print $NF}' || true
 }
 
 stop_gateway() {
@@ -74,7 +74,7 @@ case "$MODE" in
     pid=$(find_gateway_pid)
     if [[ -n "$pid" ]]; then
       echo "    运行中 (PID $pid, 端口 18789)"
-      curl -s http://127.0.0.1:18789/healthz 2>/dev/null && echo "" || echo "    健康检查无响应"
+      curl -s --noproxy 127.0.0.1 http://127.0.0.1:18789/healthz 2>/dev/null && echo "" || echo "    健康检查无响应"
     else
       echo "    未运行"
     fi
@@ -157,14 +157,14 @@ case "$MODE" in
     disown
     echo "    等待 Gateway 启动..."
     for i in $(seq 1 15); do
-      if curl -s http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
+      if curl -s --noproxy 127.0.0.1 http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
         pid=$(find_gateway_pid)
         echo "    Gateway 已启动 (PID $pid)"
         break
       fi
       sleep 2
     done
-    if ! curl -s http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
+    if ! curl -s --noproxy 127.0.0.1 http://127.0.0.1:18789/healthz > /dev/null 2>&1; then
       echo "    Gateway 启动失败，最近日志:"
       tail -10 "$LOGFILE" 2>/dev/null
       exit 1
