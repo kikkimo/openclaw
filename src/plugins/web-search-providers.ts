@@ -12,6 +12,7 @@ const BUNDLED_WEB_SEARCH_ALLOWLIST_COMPAT_PLUGIN_IDS = [
   "moonshot",
   "perplexity",
   "xai",
+  "zhipu",
 ] as const;
 
 function withBundledWebSearchAllowlistCompat(

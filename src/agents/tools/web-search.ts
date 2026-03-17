@@ -133,12 +133,42 @@ export function createWebSearchTool(options?: {
     return null;
   }
 
+  // Build a fallback provider chain: if the primary provider returns a fallback
+  // marker (e.g. zhipu MCP failure), retry with the next available provider.
+  const fallbackProviders = providers.filter(
+    (p) => p.id !== provider.id && hasProviderCredential(p.id, search),
+  );
+
   return {
     label: "Web Search",
     name: "web_search",
     description: definition.description,
     parameters: definition.parameters,
-    execute: async (_toolCallId, args) => jsonResult(await definition.execute(args)),
+    execute: async (_toolCallId, args) => {
+      const result = await definition.execute(args);
+
+      // Check for fallback marker from providers that support it (e.g. zhipu)
+      if (
+        result &&
+        typeof result === "object" &&
+        "__zhipuFallback" in result &&
+        fallbackProviders.length > 0
+      ) {
+        logVerbose(
+          `web_search: provider "${provider.id}" requested fallback, trying "${fallbackProviders[0].id}"`,
+        );
+        const fallback = fallbackProviders[0].createTool({
+          config: options?.config,
+          searchConfig: search as Record<string, unknown> | undefined,
+          runtimeMetadata: options?.runtimeWebSearch,
+        });
+        if (fallback) {
+          return jsonResult(await fallback.execute(args));
+        }
+      }
+
+      return jsonResult(result);
+    },
   };
 }
 

@@ -457,8 +457,8 @@ export type ToolsConfig = {
     search?: {
       /** Enable web search tool (default: true when API key is present). */
       enabled?: boolean;
-      /** Search provider ("brave", "gemini", "grok", "kimi", or "perplexity"). */
-      provider?: "brave" | "gemini" | "grok" | "kimi" | "perplexity";
+      /** Search provider ("brave", "gemini", "grok", "kimi", "perplexity", or "zhipu"). */
+      provider?: "brave" | "gemini" | "grok" | "kimi" | "perplexity" | "zhipu";
       /** Brave Search API key (optional; defaults to BRAVE_API_KEY env var). */
       apiKey?: SecretInput;
       /** Default search results count (1-10). */
@@ -505,6 +505,11 @@ export type ToolsConfig = {
         baseUrl?: string;
         /** @deprecated Legacy Sonar/OpenRouter field. Ignored by Search API. */
         model?: string;
+      };
+      /** Zhipu BigModel MCP web_search_prime configuration (used when provider="zhipu"). */
+      zhipu?: {
+        /** Zhipu BigModel API key for MCP web_search_prime. */
+        apiKey?: SecretInput;
       };
     };
     fetch?: {
