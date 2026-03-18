@@ -487,6 +487,11 @@ export type ToolsConfig = {
       kimi?: WebSearchLegacyProviderConfig;
       /** @deprecated Legacy Perplexity scoped config. */
       perplexity?: WebSearchLegacyProviderConfig;
+      /** Zhipu BigModel MCP web_search_prime configuration. */
+      zhipu?: {
+        /** Zhipu BigModel API key for MCP web_search_prime. */
+        apiKey?: SecretInput;
+      };
     };
     fetch?: {
       /** Enable web fetch tool (default: true). */

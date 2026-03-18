@@ -318,6 +318,12 @@ export const ToolsWebSearchSchema = z
       })
       .strict()
       .optional(),
+    zhipu: z
+      .object({
+        apiKey: SecretInputSchema.optional().register(sensitive),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .optional();
