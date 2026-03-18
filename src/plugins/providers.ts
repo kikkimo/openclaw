@@ -142,6 +142,8 @@ export function resolvePluginProviders(params: {
     workspaceDir: params.workspaceDir,
     env: params.env,
     onlyPluginIds: params.onlyPluginIds,
+    activate: false,
+    cache: false,
     logger: createPluginLoaderLogger(log),
   });
 
