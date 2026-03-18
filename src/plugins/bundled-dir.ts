@@ -28,20 +28,20 @@ export function resolveBundledPluginsDir(env: NodeJS.ProcessEnv = process.env): 
       (entry, index, all): entry is string => Boolean(entry) && all.indexOf(entry) === index,
     );
     for (const packageRoot of packageRoots) {
+      // Prefer dist-runtime wrappers when both dist/ and dist-runtime/ exist —
+      // they resolve plugin-sdk imports via the bundled dist, avoiding jiti/ESM
+      // compatibility issues with source .ts files on Windows.
+      const runtimeExtensionsDir = path.join(packageRoot, "dist-runtime", "extensions");
+      const builtExtensionsDir = path.join(packageRoot, "dist", "extensions");
+      if (fs.existsSync(runtimeExtensionsDir) && fs.existsSync(builtExtensionsDir)) {
+        return runtimeExtensionsDir;
+      }
       const sourceExtensionsDir = path.join(packageRoot, "extensions");
       if (
         (preferSourceCheckout || isSourceCheckoutRoot(packageRoot)) &&
         fs.existsSync(sourceExtensionsDir)
       ) {
         return sourceExtensionsDir;
-      }
-      // Local source checkouts stage a runtime-complete bundled plugin tree under
-      // dist-runtime/. Prefer that over source extensions only when the paired
-      // dist/ tree exists; otherwise wrappers can drift ahead of the last build.
-      const runtimeExtensionsDir = path.join(packageRoot, "dist-runtime", "extensions");
-      const builtExtensionsDir = path.join(packageRoot, "dist", "extensions");
-      if (fs.existsSync(runtimeExtensionsDir) && fs.existsSync(builtExtensionsDir)) {
-        return runtimeExtensionsDir;
       }
     }
   } catch {
