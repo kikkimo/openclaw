@@ -1,9 +1,8 @@
 import { Type } from "@sinclair/typebox";
+import { definePluginEntry } from "openclaw/plugin-sdk/core";
 import { normalizeResolvedSecretInputString } from "../../src/config/types.secrets.js";
 import { logVerbose } from "../../src/globals.js";
-import { emptyPluginConfigSchema } from "../../src/plugins/config-schema.js";
 import type {
-  OpenClawPluginApi,
   WebSearchProviderPlugin,
   WebSearchProviderToolDefinition,
 } from "../../src/plugins/types.js";
@@ -38,6 +37,7 @@ const zhipuWebSearchProvider: Omit<WebSearchProviderPlugin, "createTool"> & {
   placeholder: "your-zhipu-api-key",
   signupUrl: "https://open.bigmodel.cn/",
   autoDetectOrder: 5,
+  credentialPath: "tools.web.search.zhipu.apiKey",
   getCredentialValue: (searchConfig) => {
     const zhipu = searchConfig?.[ZHIPU_PROVIDER_ID];
     if (!zhipu || typeof zhipu !== "object" || Array.isArray(zhipu)) {
@@ -79,7 +79,9 @@ const zhipuWebSearchProvider: Omit<WebSearchProviderPlugin, "createTool"> & {
       execute: async (args): Promise<Record<string, unknown>> => {
         const query = typeof args.query === "string" ? args.query : "";
         const count =
-          typeof args.count === "number" ? Math.min(Math.max(Math.round(args.count), 1), 10) : undefined;
+          typeof args.count === "number"
+            ? Math.min(Math.max(Math.round(args.count), 1), 10)
+            : undefined;
 
         try {
           const result = await mcpWebSearch({ apiKey, query, count });
@@ -102,14 +104,11 @@ const zhipuWebSearchProvider: Omit<WebSearchProviderPlugin, "createTool"> & {
   },
 };
 
-const zhipuPlugin = {
+export default definePluginEntry({
   id: "zhipu",
   name: "Zhipu Plugin",
   description: "Bundled Zhipu BigModel plugin (web search via MCP)",
-  configSchema: emptyPluginConfigSchema(),
-  register(api: OpenClawPluginApi) {
+  register(api) {
     api.registerWebSearchProvider(zhipuWebSearchProvider);
   },
-};
-
-export default zhipuPlugin;
+});

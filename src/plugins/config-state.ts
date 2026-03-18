@@ -63,6 +63,7 @@ export const BUNDLED_ENABLED_BY_DEFAULT = new Set<string>([
   "xai",
   "xiaomi",
   "zai",
+  "zhipu",
 ]);
 
 const PLUGIN_ID_ALIASES: Readonly<Record<string, string>> = {
