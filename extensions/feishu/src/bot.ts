@@ -46,7 +46,19 @@ import {
 import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
 import { getFeishuRuntime } from "./runtime.js";
 import { getMessageFeishu, listFeishuThreadMessages, sendMessageFeishu } from "./send.js";
-import type { FeishuMessageContext } from "./types.js";
+import { resolveStateDir } from "../../../src/config/paths.js";
+import {
+  getCachedSecret,
+  getTOTPConfig,
+  initTOTPCache,
+  isAuthenticated as isTOTPAuthenticated,
+  isLockedOut as isTOTPLockedOut,
+  markAuthenticated as markTOTPAuthenticated,
+  recordFailure as recordTOTPFailure,
+  resolveTOTPConfig,
+  verifyToken as verifyTOTPToken,
+} from "./totp.js";
+import type { FeishuMessageContext, FeishuMediaInfo, ResolvedFeishuAccount } from "./types.js";
 import type { DynamicAgentCreationConfig } from "./types.js";
 
 export { toMessageResourceType } from "./bot-content.js";
@@ -239,6 +251,10 @@ export async function handleFeishuMessage(params: {
     accountId,
     processingClaimHeld = false,
   } = params;
+
+  // Initialize TOTP cache and config on first call
+  initTOTPCache(resolveStateDir());
+  resolveTOTPConfig(cfg as unknown as Record<string, unknown>);
 
   // Resolve account with merged config
   const account = resolveFeishuAccount({ cfg, accountId });
@@ -500,6 +516,72 @@ export async function handleFeishuMessage(params: {
         );
       }
       return;
+    }
+
+    // ── TOTP verification (after pairing, before agent dispatch) ──
+    if (isDirect) {
+      const totpConfig = getTOTPConfig();
+      const totpSecret = totpConfig.enabled ? getCachedSecret() : null;
+      if (totpSecret) {
+        const lockout = isTOTPLockedOut(ctx.senderOpenId);
+        if (lockout.locked) {
+          const remainMin = Math.ceil(lockout.remainingMs / 60000);
+          await sendMessageFeishu({
+            cfg,
+            to: `chat:${ctx.chatId}`,
+            text: `🔒 验证失败次数过多，请 ${remainMin} 分钟后再试。`,
+            accountId: account.accountId,
+          });
+          return;
+        }
+
+        if (!isTOTPAuthenticated(ctx.senderOpenId)) {
+          const content = (ctx.content ?? "").trim();
+
+          if (/^\d{6}$/.test(content)) {
+            if (verifyTOTPToken(totpSecret.secret, content)) {
+              markTOTPAuthenticated(ctx.senderOpenId);
+              log(`feishu[${account.accountId}]: TOTP auth success for ${ctx.senderOpenId}`);
+              await sendMessageFeishu({
+                cfg,
+                to: `chat:${ctx.chatId}`,
+                text: "✅ 认证成功！欢迎回来，请开始对话。",
+                accountId: account.accountId,
+              });
+            } else {
+              const fail = recordTOTPFailure(ctx.senderOpenId);
+              const remaining = fail.max - fail.count;
+              log(
+                `feishu[${account.accountId}]: TOTP auth failed for ${ctx.senderOpenId} (${fail.count}/${fail.max})`,
+              );
+              if (remaining > 0) {
+                await sendMessageFeishu({
+                  cfg,
+                  to: `chat:${ctx.chatId}`,
+                  text: `❌ 验证码错误，还剩 ${remaining} 次机会。请重新输入 6 位验证码。`,
+                  accountId: account.accountId,
+                });
+              } else {
+                await sendMessageFeishu({
+                  cfg,
+                  to: `chat:${ctx.chatId}`,
+                  text: `🔒 验证失败次数过多，已锁定 ${totpConfig.lockoutMinutes} 分钟。请稍后再试。`,
+                  accountId: account.accountId,
+                });
+              }
+            }
+            return;
+          }
+
+          await sendMessageFeishu({
+            cfg,
+            to: `chat:${ctx.chatId}`,
+            text: "🔐 会话需要身份验证\n\n请打开验证器 App，输入 6 位动态验证码：",
+            accountId: account.accountId,
+          });
+          return;
+        }
+      }
     }
 
     const commandAllowFrom = isGroup

@@ -7,23 +7,32 @@ export function createPluginRuntimeStore<T>(errorMessage: string): {
   tryGetRuntime: () => T | null;
   getRuntime: () => T;
 } {
-  let runtime: T | null = null;
+  // Use globalThis + Symbol.for to share runtime across bundled chunks.
+  // Closure-scoped variables break when the bundler duplicates this module
+  // into multiple output chunks.
+  const sym = Symbol.for(`openclaw.pluginRuntimeStore.${errorMessage}`);
+  type StoreState = { runtime: T | null };
+  const g = globalThis as typeof globalThis & { [key: symbol]: StoreState };
+  if (!g[sym]) {
+    g[sym] = { runtime: null };
+  }
+  const state = g[sym];
 
   return {
     setRuntime(next: T) {
-      runtime = next;
+      state.runtime = next;
     },
     clearRuntime() {
-      runtime = null;
+      state.runtime = null;
     },
     tryGetRuntime() {
-      return runtime;
+      return state.runtime;
     },
     getRuntime() {
-      if (!runtime) {
+      if (!state.runtime) {
         throw new Error(errorMessage);
       }
-      return runtime;
+      return state.runtime;
     },
   };
 }

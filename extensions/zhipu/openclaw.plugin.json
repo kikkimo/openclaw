@@ -1,0 +1,8 @@
+{
+  "id": "zhipu",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
