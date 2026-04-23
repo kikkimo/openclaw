@@ -5,6 +5,7 @@ import {
 import { getSessionBindingService } from "openclaw/plugin-sdk/conversation-runtime";
 import { deriveLastRoutePolicy } from "openclaw/plugin-sdk/routing";
 import { resolveAgentIdFromSessionKey } from "openclaw/plugin-sdk/routing";
+import { resolveStateDir } from "../../../src/config/paths.js";
 import type { ClawdbotConfig, RuntimeEnv } from "../runtime-api.js";
 import {
   buildAgentMediaPayload,
@@ -46,7 +47,6 @@ import {
 import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
 import { getFeishuRuntime } from "./runtime.js";
 import { getMessageFeishu, listFeishuThreadMessages, sendMessageFeishu } from "./send.js";
-import { resolveStateDir } from "../../../src/config/paths.js";
 import {
   getCachedSecret,
   getTOTPConfig,
@@ -55,6 +55,7 @@ import {
   isLockedOut as isTOTPLockedOut,
   markAuthenticated as markTOTPAuthenticated,
   recordFailure as recordTOTPFailure,
+  refreshAuth as refreshTOTPAuth,
   resolveTOTPConfig,
   verifyToken as verifyTOTPToken,
 } from "./totp.js";
@@ -523,7 +524,12 @@ export async function handleFeishuMessage(params: {
       const totpConfig = getTOTPConfig();
       const totpSecret = totpConfig.enabled ? getCachedSecret() : null;
       if (totpSecret) {
-        const lockout = isTOTPLockedOut(ctx.senderOpenId);
+        // 收集所有可能的 sender IDs (用于 altIds 支持)
+        const altIds = [senderUserId].filter(
+          (id): id is string => typeof id === "string" && id !== ctx.senderOpenId,
+        );
+
+        const lockout = isTOTPLockedOut(ctx.senderOpenId, altIds);
         if (lockout.locked) {
           const remainMin = Math.ceil(lockout.remainingMs / 60000);
           await sendMessageFeishu({
@@ -535,21 +541,22 @@ export async function handleFeishuMessage(params: {
           return;
         }
 
-        if (!isTOTPAuthenticated(ctx.senderOpenId)) {
+        if (!isTOTPAuthenticated(ctx.senderOpenId, altIds)) {
           const content = (ctx.content ?? "").trim();
 
           if (/^\d{6}$/.test(content)) {
             if (verifyTOTPToken(totpSecret.secret, content)) {
-              markTOTPAuthenticated(ctx.senderOpenId);
+              markTOTPAuthenticated(ctx.senderOpenId, altIds);
               log(`feishu[${account.accountId}]: TOTP auth success for ${ctx.senderOpenId}`);
               await sendMessageFeishu({
                 cfg,
                 to: `chat:${ctx.chatId}`,
-                text: "✅ 认证成功！欢迎回来，请开始对话。",
+                text: "✅ 认证成功！请继续发送消息。",
                 accountId: account.accountId,
               });
+              // 认证成功后不 return,让消息继续处理
             } else {
-              const fail = recordTOTPFailure(ctx.senderOpenId);
+              const fail = recordTOTPFailure(ctx.senderOpenId, altIds);
               const remaining = fail.max - fail.count;
               log(
                 `feishu[${account.accountId}]: TOTP auth failed for ${ctx.senderOpenId} (${fail.count}/${fail.max})`,
@@ -569,17 +576,20 @@ export async function handleFeishuMessage(params: {
                   accountId: account.accountId,
                 });
               }
+              return;
             }
+          } else {
+            await sendMessageFeishu({
+              cfg,
+              to: `chat:${ctx.chatId}`,
+              text: "🔐 会话需要身份验证\n\n请打开验证器 App，输入 6 位动态验证码：",
+              accountId: account.accountId,
+            });
             return;
           }
-
-          await sendMessageFeishu({
-            cfg,
-            to: `chat:${ctx.chatId}`,
-            text: "🔐 会话需要身份验证\n\n请打开验证器 App，输入 6 位动态验证码：",
-            accountId: account.accountId,
-          });
-          return;
+        } else {
+          // 已认证用户,刷新认证时间(滑动窗口)
+          refreshTOTPAuth(ctx.senderOpenId, altIds);
         }
       }
     }

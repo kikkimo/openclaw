@@ -257,7 +257,7 @@ describe("totp", () => {
       // 先记录几次失败
       const config = getTOTPConfig();
       for (let i = 0; i < config.maxFailures; i++) {
-        recordFailure("user123");
+        recordFailure("user123", undefined);
       }
 
       expect(isLockedOut("user123").locked).toBe(true);
@@ -272,7 +272,7 @@ describe("totp", () => {
     it("should not lock out before max failures", () => {
       const config = getTOTPConfig();
       for (let i = 0; i < config.maxFailures - 1; i++) {
-        recordFailure("user123");
+        recordFailure("user123", undefined);
       }
 
       const result = isLockedOut("user123");
@@ -283,7 +283,7 @@ describe("totp", () => {
     it("should lock out after max failures", () => {
       const config = getTOTPConfig();
       for (let i = 0; i < config.maxFailures; i++) {
-        recordFailure("user123");
+        recordFailure("user123", undefined);
       }
 
       const result = isLockedOut("user123");
@@ -297,7 +297,7 @@ describe("totp", () => {
 
       const config = getTOTPConfig();
       for (let i = 0; i < config.maxFailures; i++) {
-        recordFailure("user123");
+        recordFailure("user123", undefined);
       }
 
       expect(isLockedOut("user123").locked).toBe(true);
@@ -316,19 +316,19 @@ describe("totp", () => {
 
   describe("recordFailure", () => {
     it("should track failure count", () => {
-      const result1 = recordFailure("user789");
+      const result1 = recordFailure("user789", undefined);
       expect(result1.count).toBe(1);
 
-      const result2 = recordFailure("user789");
+      const result2 = recordFailure("user789", undefined);
       expect(result2.count).toBe(2);
 
-      const result3 = recordFailure("user790");
+      const result3 = recordFailure("user790", undefined);
       expect(result3.count).toBe(1);
     });
 
     it("should return max failures from config", () => {
       const config = getTOTPConfig();
-      const result = recordFailure("user123");
+      const result = recordFailure("user123", undefined);
       expect(result.max).toBe(config.maxFailures);
     });
 
@@ -337,7 +337,7 @@ describe("totp", () => {
 
       const config = getTOTPConfig();
       for (let i = 0; i < config.maxFailures; i++) {
-        recordFailure("user791");
+        recordFailure("user791", undefined);
       }
 
       expect(isLockedOut("user791").locked).toBe(true);
@@ -349,7 +349,7 @@ describe("totp", () => {
       expect(isLockedOut("user791").locked).toBe(false);
 
       // 新的失败应该从 1 开始计数
-      const result = recordFailure("user791");
+      const result = recordFailure("user791", undefined);
       expect(result.count).toBe(1);
     });
   });
