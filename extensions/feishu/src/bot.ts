@@ -551,10 +551,10 @@ export async function handleFeishuMessage(params: {
               await sendMessageFeishu({
                 cfg,
                 to: `chat:${ctx.chatId}`,
-                text: "✅ 认证成功！请继续发送消息。",
+                text: "✅ 认证成功！请发送你要说的话。",
                 accountId: account.accountId,
               });
-              // 认证成功后不 return,让消息继续处理
+              return;
             } else {
               const fail = recordTOTPFailure(ctx.senderOpenId, altIds);
               const remaining = fail.max - fail.count;
