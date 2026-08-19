@@ -86,6 +86,7 @@ import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
 import { getFeishuRuntime } from "./runtime.js";
 import { getMessageFeishu, listFeishuThreadMessages, sendMessageFeishu } from "./send.js";
 import { getFeishuSyntheticDirectPreDispatchTarget } from "./synthetic-event-target.js";
+import { evaluateTotpGuard } from "./totp-guard.js";
 import {
   isFeishuGroupChatType,
   type FeishuMessageContext,
@@ -794,6 +795,28 @@ export async function handleFeishuMessage(params: {
         effectiveDmIngress = currentAuthorization.ingress;
         effectiveShouldComputeCommandAuthorized =
           currentAuthorization.shouldComputeCommandAuthorized;
+      }
+    }
+
+    // TOTP 守卫：DM 授权（pairing/allowFrom）通过之后再校验动态验证码。
+    // 未配置 secret 时 guard 直接放行，因此不会挡住尚未启用 TOTP 的用户。
+    if (isDirect) {
+      const totpGuard = evaluateTotpGuard({
+        // 配置对象在此处跨越插件边界，按 Record 读取 channels.feishu.totp。
+        cfg: effectiveCfg as unknown as Record<string, unknown>,
+        senderOpenId: ctx.senderOpenId,
+        content: ctx.content,
+      });
+      if (totpGuard.action !== "pass") {
+        await sendMessageFeishu({
+          cfg: effectiveCfg,
+          to: directPreDispatchTarget ?? `chat:${ctx.chatId}`,
+          text: totpGuard.reply,
+          accountId: account.accountId,
+        }).catch((err: unknown) => {
+          log(`feishu[${account.accountId}]: failed to send TOTP guard reply: ${String(err)}`);
+        });
+        return;
       }
     }
 

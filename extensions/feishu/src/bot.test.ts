@@ -335,6 +335,7 @@ const {
   mockFormatAgentEnvelope,
   mockDispatchInboundMessage,
   mockResolveFeishuBotName,
+  mockEvaluateTotpGuard,
 } = vi.hoisted(() => ({
   mockCreateFeishuReplyDispatcher: vi.fn(() => ({
     dispatcherOptions: {},
@@ -378,6 +379,7 @@ const {
     .fn()
     .mockResolvedValue({ queuedFinal: false, counts: { final: 1 } }),
   mockResolveFeishuBotName: vi.fn().mockResolvedValue("Peer Bot"),
+  mockEvaluateTotpGuard: vi.fn(() => ({ action: "pass" })),
 }));
 
 const finalizeInboundContextMock = mockBuildChannelInboundEventContext;
@@ -449,6 +451,10 @@ vi.mock("./dynamic-agent.js", () => ({
 
 vi.mock("./bot-name.js", () => ({
   resolveFeishuBotName: mockResolveFeishuBotName,
+}));
+
+vi.mock("./totp-guard.js", () => ({
+  evaluateTotpGuard: mockEvaluateTotpGuard,
 }));
 
 vi.mock("openclaw/plugin-sdk/conversation-runtime", async () => {
@@ -1059,6 +1065,8 @@ describe("handleFeishuMessage command authorization", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // TOTP 守卫默认放行，既有 DM 用例的行为保持不变。
+    mockEvaluateTotpGuard.mockReset().mockReturnValue({ action: "pass" });
     mockDispatchReplyFromConfig.mockReset().mockResolvedValue({
       queuedFinal: false,
       counts: { final: 1 },
@@ -1391,6 +1399,64 @@ describe("handleFeishuMessage command authorization", () => {
 
     expect(mockResolveCommandAuthorizedFromAuthorizers).not.toHaveBeenCalled();
     expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+  });
+
+  it("replies the TOTP challenge and does not dispatch the DM to the agent", async () => {
+    mockEvaluateTotpGuard.mockReturnValue({
+      action: "challenge",
+      reply: "🔐 请先发送 6 位动态验证码完成认证。",
+    });
+    const cfg = createFeishuTestConfig({ dmPolicy: "open" });
+    const event = createFeishuTestEvent({ messageId: "msg-totp-challenge", text: "帮我查天气" });
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).toHaveBeenCalledTimes(1);
+    expect(mockCallArg<{ text: string }>(mockSendMessageFeishu, 0, 0).text).toContain("验证码");
+  });
+
+  it("keeps a successful verification out of the agent session", async () => {
+    mockEvaluateTotpGuard.mockReturnValue({
+      action: "verified",
+      reply: "✅ 认证成功，请开始对话。",
+    });
+    const cfg = createFeishuTestConfig({ dmPolicy: "open" });
+    const event = createFeishuTestEvent({ messageId: "msg-totp-verified", text: "123456" });
+
+    await dispatchMessage({ cfg, event });
+
+    // 验证码本身是认证凭据，不应作为对话内容进入 agent
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).toHaveBeenCalledTimes(1);
+  });
+
+  it("dispatches the DM once the TOTP guard passes", async () => {
+    const cfg = createFeishuTestConfig({ dmPolicy: "open" });
+    const event = createFeishuTestEvent({ messageId: "msg-totp-pass", text: "hello there" });
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockEvaluateTotpGuard).toHaveBeenCalledTimes(1);
+    expect(mockDispatchReplyFromConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not apply the TOTP guard to group messages", async () => {
+    mockEvaluateTotpGuard.mockReturnValue({
+      action: "challenge",
+      reply: "🔐 请先发送 6 位动态验证码完成认证。",
+    });
+    const cfg = createFeishuTestConfig({ dmPolicy: "open" });
+    const event = createFeishuTestEvent({
+      messageId: "msg-totp-group",
+      chatId: "oc-group",
+      chatType: "group",
+      text: "hello team",
+    });
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockEvaluateTotpGuard).not.toHaveBeenCalled();
   });
 
   it("reads pairing allow store for non-command DMs when dmPolicy is pairing", async () => {
