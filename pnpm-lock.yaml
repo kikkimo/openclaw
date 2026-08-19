@@ -2108,6 +2108,16 @@ importers:
         specifier: workspace:*
         version: link:../..
 
+  extensions/zhipu:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: 1.30.0
+        version: 1.30.0(supports-color@10.2.2)(zod@4.4.3)
+    devDependencies:
+      '@openclaw/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+
   extensions/zoom-meetings:
     dependencies:
       typebox:

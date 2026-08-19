@@ -1,0 +1,40 @@
+{
+  "id": "zhipu",
+  "activation": {
+    "onStartup": false
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "zhipu",
+        "envVars": ["ZHIPU_API_KEY"]
+      }
+    ]
+  },
+  "uiHints": {
+    "webSearch.apiKey": {
+      "label": "Zhipu API Key",
+      "help": "智谱 BigModel 开放平台 API Key（备选：ZHIPU_API_KEY 环境变量）。",
+      "sensitive": true,
+      "placeholder": "your-zhipu-api-key"
+    }
+  },
+  "contracts": {
+    "webSearchProviders": ["zhipu"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "webSearch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "apiKey": {
+            "type": ["string", "object"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -11052,6 +11052,7 @@ surfaces:
           - docs/tools/kimi-search.md
           - docs/tools/minimax-search.md
           - docs/tools/ollama-search.md
+          - docs/tools/zhipu-search.md
           - docs/plugins/sdk-subpaths.md
           - docs/plugins/sdk-overview.md
           - docs/plugins/manifest.md
